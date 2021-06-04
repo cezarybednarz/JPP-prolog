@@ -7,3 +7,4 @@ program([assign(arr(chce, pid), 1),
          sekcja,
 	 assign(arr(chce, pid), 0),
 	 goto(1)]).
+

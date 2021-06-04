@@ -5,27 +5,12 @@ verify :-
     verify(N, Program).
 
 verify(N, Program) :-
-    seeing(OldStream),
     see(Program),
-    repeat,
     read(Term1),
+    Term1 =.. [_, Variables],
     read(Term2),
+    Term2 =.. [_, Arrays],
     read(Term3),
-
-    write(N),
-    write("\n"),
-    write(Term1),
-    write("\n"),
-    write(Term2),
-    write("\n"),
-    write(Term3),
-    write("\n"),
-
-    seen,
-    see(OldStream).
-
-% initState(+Program, +N, -StanPoczątkowy)
-
-% step(+Program, +StanWe, ?PrId, -StanWy)
-
+    Term3 =.. [_, Prog],
+    seen.
 
