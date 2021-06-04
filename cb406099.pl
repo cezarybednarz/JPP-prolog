@@ -7,16 +7,23 @@ verify :-
     verify(N_num, Program).
 
 verify(N, Program) :-
-    see(Program),
-    read(Term1),
-    read(Term2),
-    read(Term3),
-    Term1 =.. [_, Variables],
-    Term2 =.. [_, Arrays],
-    Term3 =.. [_, Prog],
-    initState(N, Prog, InitState),
-    write(InitState),
-    seen.
+    (   N =< 0 
+    ->
+        write("Error: parametr "),
+        write(N),
+        write(" powinien byc liczba > 0"),nl
+    ; 
+        see(Program),
+        read(Term1),
+        read(Term2),
+        read(Term3),
+        Term1 =.. [_, Variables],
+        Term2 =.. [_, Arrays],
+        Term3 =.. [_, Prog],
+        initState(N, Prog, InitState),
+        write(InitState),
+        seen
+    ).
 
 storage(vars, arrs, line).
 
