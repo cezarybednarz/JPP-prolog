@@ -1,4 +1,5 @@
 :- ensure_loaded(library(lists)).
+:- op(700, xfx, <>).
 
 verify :-
     debug,
@@ -58,6 +59,7 @@ initState(Program, N, StanPoczatkowy) :-
     Storage = storage(VariablesList, ArraysList, LinesList),
     StanPoczatkowy = state(N, Storage, []). 
 
+
 getElemFromPairList([], _, Val) :-
     Val is -1.
 getElemFromPairList([[N,V]|PairList], Name, Val) :-
@@ -68,6 +70,10 @@ getElemFromPairList([[N,V]|PairList], Name, Val) :-
         getElemFromPairList(PairList, Name, Val)
     ).
 
+removeElemFromPairList(PairList, Name, NewPairList) :-
+    getElemFromPairList(PairList, Name, Val),
+    delete([Name,Val], PairList, NewPairList).
+
 getVariable(Storage, VarName, Value) :-
     Storage =.. [_, Vars, _, _],
     getElemFromPairList(Vars, VarName, Value).
@@ -77,10 +83,101 @@ getArrayElem(Storage, ArrName, Id, Value) :-
     getElemFromPairList(Arrs, ArrName, Array),
     nth0(Id, Array, Value).
 
+setVariable(Storage, VarName, Value, NewStorage) :-
+    Storage =..[_, Vars, Arrs, Lines],
+    removeElemFromPairList(Vars, VarName, NewVars),
+    NewerVars = [[VarName, Value]|NewVars],
+    NewStorage = storage(NewerVars, Arrs, Lines).
+
+setArrayElem(Storage, ArrName, Id, Value, NewStorage) :-
+    Storage =.. [_, Vars, Arrs, Lines],
+    getElemFromPairList(Arrs, ArrName, Arr),
+    removeElemFromPairList(Arrs, ArrName, NewArrs),
+    nth0(Id, Arr, _, NewArr),
+    nth0(Id, NewerArr, Value, NewArr),
+    NewerArrs = [[ArrName,NewerArr]|NewArrs],
+    NewStorage = storage(Vars, NewerArrs, Lines).
+
+
 step(Program, StanWe, PrId, StanWy) :-
     Program =.. [_, _, _, Stmts],
     StanWe =.. [_, N, Storage, VisitedStorages],
-    Storage =.. [_, Variables, Arrays, Lines],
+    Storage =.. [_, _, _, Lines],
     nth0(PrId, Lines, Line),
-    nth1(Line, Stmts, Stmt).
+    nth1(Line, Stmts, Stmt),
+    evalStmt(Stmt, PrId, Storage, Line, NewStorage, NewLine),
+    NewStorage =.. [_, NewVars, NewArrs, _],
+    NewVisitedStorages = [NewStorage|VisitedStorages], 
+    nth0(PrId, Lines, _, NewLines),
+    nth0(PrId, NewerLines , NewLine, NewLines),
+    NewerStorage = storage(NewVars, NewArrs, NewerLines),
+    StanWy = state(N, NewerStorage, NewVisitedStorages).
+
+% evalExpr
+evalExpr(Var, _, Storage, Val) :-
+    atom(Var),
+    getVariable(Storage, Var, Val). 
+
+evalExpr(Num, _, _, Val) :-
+    integer(Num),
+    Val is Num.
+
+evalExpr(pid, PrId, _, Val) :-
+    Val is PrId.
+
+evalExpr(array(ArrName, IdExpr), PrId, Storage, Val) :-
+    evalExpr(IdExpr, PrId, Storage, Id),
+    getArrayElem(Storage, ArrName, Id, Val).
+
+evalExpr(Expr, PrId, Storage, Val) :-
+    Expr =.. [Op, L, R],
+    member(Op, [+,-,*,/]),
+    evalExpr(L, PrId, Storage, NewL),
+    evalExpr(R, PrId, Storage, NewR),
+    NewExpr =.. [Op, NewL, NewR],
+    Val is NewExpr.
+
+% evalBoolExpr
+evalBoolExpr(BExpr, PrId, Storage, BVal) :-
+    BExpr =.. [Op, L, R],
+    evalExpr(L, PrId, Storage, LVal),
+    evalExpr(R, PrId, Storage, RVal),
+    NewBExpr =.. [Op, LVal, RVal],
+    BVal is NewBExpr.
+
+% evalStmt
+evalStmt(assign(VarName, Expr), PrId,
+         Storage, Line, NewStorage, NewLine) :-
+    evalExpr(Expr, PrId, Storage, Val),
+    setVariable(Storage, VarName, Val, NewStorage),
+    NewLine is Line+1.
+
+evalStmt(assign(array(ArrName, IdExpr), Expr), PrId,
+         Storage, Line, NewStorage, NewLine) :-
+    evalExpr(Expr, PrId, Storage, Val),
+    evalExpr(IdExpr, PrId, Storage, Id),
+    setArrayElem(Storage, ArrName, Id, Val, NewStorage),
+    NewLine is Line+1.
+
+evalStmt(goto(LineNr), _,
+         Storage, _, NewStorage, NewLine) :-
+    NewStorage = Storage,
+    NewLine = LineNr.
+
+evalStmt(condGoto(BoolExpr, LineNr), PrId,
+         Storage, Line, NewStorage, NewLine) :-
+    NewStorage = Storage,
+    evalBoolExpr(BoolExpr, PrId, Storage, BVal),
+    (   BVal
+    ->
+        NewLine = LineNr
+    ;
+        NewLine = Line+1
+    ).
+
+evalStmt(sekcja, Storage, _,
+         Line, NewStorage, NewLine) :-
+    NewStorage = Storage,
+    NewLine = Line.
+
     
