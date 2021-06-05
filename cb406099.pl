@@ -13,7 +13,9 @@ verify(N, Program) :-
         write(N),
         write(" powinien byc liczba > 0"),nl
     ; 
+        set_prolog_flag(fileerrors, off),
         see(Program),
+        !,
         read(Term1),
         read(Term2),
         read(Term3),
@@ -24,6 +26,9 @@ verify(N, Program) :-
         write(InitState),
         seen
     ).
+verify(N, Program) :-
+    format('Error: brak pliku o nazwie - ~s', [Program]),nl.
+
 
 storage(vars, arrs, line).
 
@@ -36,4 +41,5 @@ build(X, N, List) :-
 initState(N, Prog, State) :-
     build(storage([], [], 0), N, InitStorages),
     State = state(N, Prog, InitStorages, []).
+
 
