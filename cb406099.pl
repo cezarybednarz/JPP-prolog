@@ -1,5 +1,6 @@
 :- ensure_loaded(library(lists)).
 :- op(700, xfx, <>).
+X <> Y :- X \= Y.
 
 verify :-
     debug,
@@ -229,12 +230,12 @@ evalExpr(Expr, PrId, Storage, Val) :-
     Val is NewExpr.
 
 % evalBoolExpr
-evalBoolExpr(BExpr, PrId, Storage, BVal) :-
+evalBoolExpr(BExpr, PrId, Storage) :-
     BExpr =.. [Op, L, R],
     evalExpr(L, PrId, Storage, LVal),
     evalExpr(R, PrId, Storage, RVal),
-    NewBExpr =.. [Op, LVal, RVal],
-    BVal is NewBExpr.
+    %NewBExpr =.. [Op, LVal, RVal],
+    call(Op, LVal, RVal).
 
 % evalStmt
 evalStmt(assign(VarName, Expr), PrId,
@@ -254,17 +255,16 @@ evalStmt(assign(array(ArrName, IdExpr), Expr), PrId,
 evalStmt(goto(LineNr), _,
          Storage, _, NewStorage, NewLine) :-
     NewStorage = Storage,
-    NewLine = LineNr.
+    NewLine is LineNr.
 
 evalStmt(condGoto(BoolExpr, LineNr), PrId,
          Storage, Line, NewStorage, NewLine) :-
     NewStorage = Storage,
-    evalBoolExpr(BoolExpr, PrId, Storage, BVal),
-    (   BVal
+    (   evalBoolExpr(BoolExpr, PrId, Storage)
     ->
-        NewLine = LineNr
+        NewLine is LineNr
     ;
-        NewLine = Line+1
+        NewLine is Line+1
     ).
 
 evalStmt(sekcja, _, 

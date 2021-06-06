@@ -1,0 +1,3 @@
+variables([k]).
+arrays([chce]).
+program([condGoto(k <> 1, 1)]).
