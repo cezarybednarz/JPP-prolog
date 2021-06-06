@@ -29,18 +29,6 @@ verify(N, Program) :-
         append(Stmts, [goto(LastStmtLine)], NewStmts),  % finished prcesses will loop at the end
         TermProg = program(Variables, Arrays, NewStmts),
         initState(TermProg, N, InitState),
-
-        step(TermProg, InitState, 0, State1),
-        write('State1: '),write(State1),nl,
-        % step(TermProg, State1, 1, State2),
-        % write(State2),nl,
-        % step(TermProg, State2, 0, State3),
-        % write(State3),nl,
-        % step(TermProg, State3, 1, State4),
-        % write(State4),nl,
-        %write('----------------------'),nl,
-
-
         checkState(TermProg, InitState, _, Result),
         Result =.. [_, Valid, PrId1, PrId2],
         (   Valid
@@ -137,9 +125,6 @@ checkAllPrIds(_, N, N, _, VisitedStorages, NewVisitedStorages, result(true, -1, 
 checkAllPrIds(Program, PrId, N,
               Storage, VisitedStorages, NewVisitedStorages, Result) :-
     PrId < N,
-    write(' | PrId: '),write(PrId),nl,
-    write(' | Storage: '),write(Storage),nl,
-    write(' | VisitedStorages: '),write(VisitedStorages),nl,
     step(Program, state(N, Storage, VisitedStorages), PrId, state(N, CurrStorage, CurrVisitedStorages)),
     length(VisitedStorages, Len1),
     length(CurrVisitedStorages, Len2),
@@ -148,7 +133,7 @@ checkAllPrIds(Program, PrId, N,
         checkState(Program, state(N, CurrStorage, CurrVisitedStorages), ChildVisistedStorages, TempResult)
     ;
         TempResult = result(true, -1, -1),
-        ChildVisistedStorages = CurrVisitedStorages % upewnić się
+        ChildVisistedStorages = CurrVisitedStorages 
     ),
     TempResult =.. [_, Good, _, _],
     (   not(Good)
@@ -192,8 +177,6 @@ step(Program, StanWe, PrId, StanWy) :-
     Storage =.. [_, _, _, Lines],
     nth0(PrId, Lines, Line),
     nth1(Line, Stmts, Stmt),
-    write('PrId:     '),write(PrId),nl,
-    write('evalStmt: '),write(Stmt),nl,
     evalStmt(Stmt, PrId, Storage, Line, NewStorage, NewLine),
     NewStorage =.. [_, NewVars, NewArrs, _],
     nth0(PrId, Lines, _, NewLines),
