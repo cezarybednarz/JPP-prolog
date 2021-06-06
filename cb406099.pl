@@ -254,7 +254,7 @@ evalBoolExpr(BExpr, PrId, Storage) :-                   % ewaluacja wyrazen
     call(Op, LVal, RVal).
 
 
-evalStmt(assign(VarName, Expr), PrId,                   % ewaluacja linijek
+evalStmt(assign(VarName, Expr), PrId,                   % ewaluacja instrukcji
          Storage, Line, NewStorage, NewLine) :-
     atom(VarName),
     evalExpr(Expr, PrId, Storage, Val),
