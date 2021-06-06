@@ -1,6 +1,9 @@
+% Program security checker in Prolog
+% Author: Cezary Bednarz
+
 :- ensure_loaded(library(lists)).
-:- op(700, xfx, <>).
-X <> Y :- X \= Y.
+:- op(700, xfx, <>).                                    % zdefiniuj brakujacy
+X <> Y :- X \= Y.                                       % operator <>
 
 verify :-
     debug,
@@ -9,7 +12,7 @@ verify :-
     verify(N_num, Program).
 
 verify(N, Program) :-
-    (   N =< 0 
+    (   N =< 0                                          
     ->
         write('Error: parametr '),
         write(N),
@@ -24,54 +27,73 @@ verify(N, Program) :-
         Term1 =.. [_, Variables],
         Term2 =.. [_, Arrays],
         Term3 =.. [_, Stmts],
-        length(Stmts, StmtsLen),
-        LastStmtLine is StmtsLen+1,
-        append(Stmts, [goto(LastStmtLine)], NewStmts),  % finished prcesses will loop at the end
+        length(Stmts, StmtsLen),               
+        LastStmtLine is StmtsLen+1,                     % zakonczone procesy
+        append(Stmts, [goto(LastStmtLine)], NewStmts),  % beda w petli w goto
         TermProg = program(Variables, Arrays, NewStmts),
         initState(TermProg, N, InitState),
-        checkState(TermProg, InitState, _, Result),
-        Result =.. [_, Valid, PrId1, PrId2],
+        checkState(TermProg, InitState, _, Result),     % zacznij rekurencje
+        Result =.. [_, Valid, PrId1, PrId2, Path],      % odzyskaj wyniki
         (   Valid
         ->
-            write('Program jest poprawny (bezpieczny).'),nl
+            write('Program jest poprawny (bezpieczny).\n')
         ;
-            write('Program jest niepoprawny.'),nl,
-            format('Procesy w sekcji: ~d, ~d.\n', [PrId1, PrId2])
+            write('Program jest niepoprawny.\n'),
+            write('Niepoprawny przeplot:\n'),
+            writePath(Path),
+            format('Procesy w sekcji: ~d, ~d.\n', 
+                   [PrId1, PrId2])
         ),
         seen
     ).
 verify(_, Program) :-
-    format('Error: brak pliku o nazwie - ~s', [Program]),nl.
+    format('Error: brak pliku o nazwie - ~s',           % wywolywane gdy nie ma
+           [Program]),nl.                               % pliku o danej nazwie
 
+writePath([]).                                          % wypisz sciezke
+writePath([[Proc,Line]|Path]) :-                        % ktora prowadzi do 
+    format('   Proces ~d: ~d\n', [Proc,Line]),          % przeplotu
+    writePath(Path).
+
+
+% storage:
+%  - vars: zmienne, trzymane jako lista par [Nazwa,Wartosc]
+%  - arrs: tablice, trzymane jako lista par [Nazwa,Lista wartosci]
+%  - lines: lista licznikow instrukcji dla wszystkich procesow
 storage(vars, arrs, lines).
+% state: 
+%  - n: liczba z zadania (liczba procesow, itd.)
+%  - currentStorage: stan pamieci w danym momencie, typ: storage
+%  - visitedStorages: odwiedzone stany pamieci, typ: lista storage
 state(n, currentStorage, visitedStorages).
 
-build(X, N, List) :- 
-    length(List, N), 
+build(X, N, List) :-                                    % buduje List jako 
+    length(List, N),                                    % powtorzone N razy X
     maplist(=(X), List).
 
-mergeLists([], [], []).
-mergeLists([X|L1], [Y|L2], [[X,Y]|List]) :-
+mergeLists([], [], []).                                 % laczy 2 listy w 
+mergeLists([X|L1], [Y|L2], [[X,Y]|List]) :-             % jedna liste par
     mergeLists(L1, L2, List).
 
 initState(Program, N, StanPoczatkowy) :-
     Program =.. [_, Variables, Arrays, _],
-    length(Variables, VariablesLen),
-    build(0, VariablesLen, InitVariables),
-    mergeLists(Variables, InitVariables, VariablesList),
+    length(Variables, VariablesLen),                    
+    build(0, VariablesLen, InitVariables),              % zainicjalizuj pusta 
+    mergeLists(Variables, InitVariables, VariablesList),% liste zmiennych
     N1 is N+1,
     length(Arrays, ArraysLen),
-    build(0, N1, ZeroArray),
-    build(ZeroArray, ArraysLen, InitArrays),
-    mergeLists(Arrays, InitArrays, ArraysList),
-    build(1, N, LinesList),
-    Storage = storage(VariablesList, ArraysList, LinesList),
+    build(0, N1, ZeroArray),                            
+    build(ZeroArray, ArraysLen, InitArrays),            % zainicjalizuj pusta
+    mergeLists(Arrays, InitArrays, ArraysList),         % liste tablic
+    build(1, N, LinesList),                             % tablica instrukcji 
+    Storage = storage(VariablesList, ArraysList,     
+                      LinesList),
     StanPoczatkowy = state(N, Storage, [Storage]). 
 
 
-getElemFromPairList([], _, Val) :-
-    Val is -1.
-getElemFromPairList([[N,V]|PairList], Name, Val) :-
+getElemFromPairList([], _, Val) :-                      % wyjmij element z listy
+    Val is -1.                                          % par stojacy na
+getElemFromPairList([[N,V]|PairList], Name, Val) :-     % miejscu Name
     (   N = Name
     ->  
         Val = V
@@ -79,28 +101,28 @@ getElemFromPairList([[N,V]|PairList], Name, Val) :-
         getElemFromPairList(PairList, Name, Val)
     ).
 
-removeElemFromPairList(PairList, Name, NewPairList) :-
-    getElemFromPairList(PairList, Name, Val),
-    delete(PairList, [Name,Val], NewPairList).
+removeElemFromPairList(PairList, Name, NewPairList) :-  % usun element z listy
+    getElemFromPairList(PairList, Name, Val),           % par stojacy na
+    delete(PairList, [Name,Val], NewPairList).          % miejscu name
 
-getVariable(Storage, VarName, Value) :-
-    Storage =.. [_, Vars, _, _],
+getVariable(Storage, VarName, Value) :-                 % wyjmij zmienna o
+    Storage =.. [_, Vars, _, _],                        % nazwie VarName
     getElemFromPairList(Vars, VarName, Value).
 
-getArrayElem(Storage, ArrName, Id, Value) :-
-    Storage =.. [_, _, Arrs, _],
-    getElemFromPairList(Arrs, ArrName, Array),
+getArrayElem(Storage, ArrName, Id, Value) :-            % wyjmij element z 
+    Storage =.. [_, _, Arrs, _],                        % tablicy ArrName
+    getElemFromPairList(Arrs, ArrName, Array),          % na miejscu Id
     nth0(Id, Array, Value).
 
-setVariable(Storage, VarName, Value, NewStorage) :-
-    Storage =..[_, Vars, Arrs, Lines],
+setVariable(Storage, VarName, Value, NewStorage) :-     % ustaw zmienna o nazwie
+    Storage =..[_, Vars, Arrs, Lines],                  % Varname na Value
     removeElemFromPairList(Vars, VarName, NewVars),
     NewerVars = [[VarName, Value]|NewVars],
     NewStorage = storage(NewerVars, Arrs, Lines).
 
-setArrayElem(Storage, ArrName, Id, Value, NewStorage) :-
-    Storage =.. [_, Vars, Arrs, Lines],
-    getElemFromPairList(Arrs, ArrName, Arr),
+setArrayElem(Storage, ArrName, Id, Value, NewStorage) :-% ustaw element Id
+    Storage =.. [_, Vars, Arrs, Lines],                 % tablicy ArrName
+    getElemFromPairList(Arrs, ArrName, Arr),            % na Value
     removeElemFromPairList(Arrs, ArrName, NewArrs),
     nth0(Id, Arr, _, NewArr),
     nth0(Id, NewerArr, Value, NewArr),
@@ -108,61 +130,72 @@ setArrayElem(Storage, ArrName, Id, Value, NewStorage) :-
     NewStorage = storage(Vars, NewerArrs, Lines).
 
 
-% backtrack and step
 
-checkState(Program, State, NewVisitedStorages, Result) :-
-    State =.. [_, N, Storage, VisitedStorages],
-    checkCriticalSection(Program, State, result(IsValid, PrId1, PrId2)),
+checkState(Program, State, NewVisitedStorages, Result):-% sprawdz czy dany stan 
+    State =.. [_, N, Storage, VisitedStorages],         % prowadzi do pojawienia
+    checkCriticalSection(Program, State,                % sie 2 procesow 
+                         result(IsValid, PrId1, PrId2,  % w sekcji krytycznej
+                                Path)),
     (   IsValid
     ->
-        checkAllPrIds(Program, 0, N, Storage, VisitedStorages, NewVisitedStorages, Result)
+        checkAllPrIds(Program, 0, N, Storage, VisitedStorages, 
+                      NewVisitedStorages, Result)
     ;
-        Result = result(false, PrId1, PrId2)
+        Result = result(false, PrId1, PrId2, Path)
     ).
 
-checkAllPrIds(_, N, N, _, VisitedStorages, NewVisitedStorages, result(true, -1, -1)) :-
-    NewVisitedStorages = VisitedStorages.
-checkAllPrIds(Program, PrId, N,
+checkAllPrIds(_, N, N, _,                               % przeiteruj sie po 
+              VisitedStorages, NewVisitedStorages,      % wszystkich procesach 
+              result(true, -1, -1, [])) :-              % i wykonaj krok, jesli
+    NewVisitedStorages = VisitedStorages.               % prowadzi do nowego 
+checkAllPrIds(Program, PrId, N,                         % stanu
               Storage, VisitedStorages, NewVisitedStorages, Result) :-
     PrId < N,
-    step(Program, state(N, Storage, VisitedStorages), PrId, state(N, CurrStorage, CurrVisitedStorages)),
+    step(Program, state(N, Storage, VisitedStorages), 
+         PrId, state(N, CurrStorage, CurrVisitedStorages)),
+    Storage =.. [_, _, _, Lines],
+    nth0(PrId, Lines, CurrLine),
     length(VisitedStorages, Len1),
     length(CurrVisitedStorages, Len2),
     (   Len1 \= Len2
     ->
-        checkState(Program, state(N, CurrStorage, CurrVisitedStorages), ChildVisistedStorages, TempResult)
+        checkState(Program, state(N, CurrStorage, CurrVisitedStorages), 
+                   ChildVisistedStorages, TempResult)
     ;
-        TempResult = result(true, -1, -1),
+        TempResult = result(true, -1, -1, []),
         ChildVisistedStorages = CurrVisitedStorages 
     ),
-    TempResult =.. [_, Good, _, _],
+    TempResult =.. [_, Good, PrId1, PrId2, PrevPath],
     (   not(Good)
     ->
-        Result = TempResult
+        Result = result(false, PrId1, PrId2, 
+                        [[PrId, CurrLine]|PrevPath])
     ;
         NextPrId is PrId+1,
-        checkAllPrIds(Program, NextPrId, N, Storage, ChildVisistedStorages, NewVisitedStorages, Result)
+        checkAllPrIds(Program, NextPrId, N, Storage, 
+                      ChildVisistedStorages, NewVisitedStorages, Result)
     ).
 
 
-checkCriticalSection(Program, State, Result) :-
-    State =.. [_, _, Storage, _],
-    Storage =.. [_, _, _, Lines],
-    Program =.. [_, _, _, Stmts],
-    sectionKeywordPrIdList(Stmts, Lines, 0, PrIds),
-    length(PrIds, Len),
-    (   Len >= 2
+checkCriticalSection(Program, State, Result) :-         % sprawdz czy 2 procesy
+    State =.. [_, _, Storage, _],                       % sa w sekcji krytycznej
+    Storage =.. [_, _, _, Lines],                       % i jesli tak to zacznij
+    Program =.. [_, _, _, Stmts],                       % cofanie sie rekurencji
+    sectionKeywordPrIdList(Stmts, Lines, 0, PrIds),     % i tworzenie sciezki
+    length(PrIds, Len),                                 % po ktorej mozna
+    (   Len >= 2                                        % odtworzyc wynik
     ->
         PrIds = [PrId1, PrId2|_],
-        Result = result(false, PrId1, PrId2)
+        Result = result(false, PrId1, PrId2, [])
     ;
-        Result = result(true, -1, -1)
+        Result = result(true, -1, -1, [])
     ).
 
-sectionKeywordPrIdList(_, [], _, []) :- !.
-sectionKeywordPrIdList(Stmts, [L|Lines], PrId, PrIds) :-
-    NextPrId is PrId+1,
-    sectionKeywordPrIdList(Stmts, Lines, NextPrId, NewPrIds),
+sectionKeywordPrIdList(_, [], _, []) :- !.              % otrzymaj liste
+sectionKeywordPrIdList(Stmts, [L|Lines], PrId, PrIds) :-% indeksow instrukcji
+    NextPrId is PrId+1,                                 % wskazujacych
+    sectionKeywordPrIdList(Stmts, Lines, NextPrId,      % na instrukcje 'sekcja'
+                           NewPrIds),
     nth1(L, Stmts, Line),
     (   Line = sekcja
     ->  
@@ -176,18 +209,19 @@ step(Program, StanWe, PrId, StanWy) :-
     StanWe =.. [_, N, Storage, VisitedStorages],
     Storage =.. [_, _, _, Lines],
     nth0(PrId, Lines, Line),
-    nth1(Line, Stmts, Stmt),
+    nth1(Line, Stmts, Stmt),                            % wez instrukcje 
     evalStmt(Stmt, PrId, Storage, Line, NewStorage, NewLine),
     NewStorage =.. [_, NewVars, NewArrs, _],
-    nth0(PrId, Lines, _, NewLines),
-    nth0(PrId, NewerLines, NewLine, NewLines),
+    nth0(PrId, Lines, _, NewLines),                     % przesun wskaznik
+    nth0(PrId, NewerLines, NewLine, NewLines),          % instrukcji
     NewerStorage = storage(NewVars, NewArrs, NewerLines),
     delete(VisitedStorages, NewerStorage, NewVisitedStorages),
-    NewerVisitedStorages = [NewerStorage|NewVisitedStorages], 
+    NewerVisitedStorages =                              % wrzuc storage do 
+        [NewerStorage|NewVisitedStorages],              % zbioru odwiedzonych
     StanWy = state(N, NewerStorage, NewerVisitedStorages).
 
-% evalExpr
-evalExpr(Var, PrId, Storage, Val) :-
+
+evalExpr(Var, PrId, Storage, Val) :-                    % ewaluacja wyrazen
     atom(Var),
     (   Var = pid
     ->
@@ -212,15 +246,15 @@ evalExpr(Expr, PrId, Storage, Val) :-
     NewExpr =.. [Op, NewL, NewR],
     Val is NewExpr.
 
-% evalBoolExpr
-evalBoolExpr(BExpr, PrId, Storage) :-
-    BExpr =.. [Op, L, R],
+
+evalBoolExpr(BExpr, PrId, Storage) :-                   % ewaluacja wyrazen
+    BExpr =.. [Op, L, R],                               % boolowskich
     evalExpr(L, PrId, Storage, LVal),
     evalExpr(R, PrId, Storage, RVal),
     call(Op, LVal, RVal).
 
-% evalStmt
-evalStmt(assign(VarName, Expr), PrId,
+
+evalStmt(assign(VarName, Expr), PrId,                   % ewaluacja linijek
          Storage, Line, NewStorage, NewLine) :-
     atom(VarName),
     evalExpr(Expr, PrId, Storage, Val),
