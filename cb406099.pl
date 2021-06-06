@@ -33,14 +33,14 @@ verify(N, Program) :-
         write('InitState: '),write(InitState),nl,
 
         step(TermProg, InitState, 0, State1),
-        write(State1),nl,
+        write('State1: '),write(State1),nl,
         % step(TermProg, State1, 1, State2),
         % write(State2),nl,
         % step(TermProg, State2, 0, State3),
         % write(State3),nl,
         % step(TermProg, State3, 1, State4),
         % write(State4),nl,
-        write('----------------------'),nl,
+        %write('----------------------'),nl,
 
 
         checkState(TermProg, InitState, _, Result),
@@ -126,6 +126,8 @@ setArrayElem(Storage, ArrName, Id, Value, NewStorage) :-
 
 checkState(Program, State, NewVisitedStorages, Result) :-
     State =.. [_, N, Storage, VisitedStorages],
+    write('Storage:         '),write(Storage),nl,
+    write('VisitedStorages: '),write(Storage),nl,
     checkCriticalSection(Program, State, result(IsValid, PrId1, PrId2)),
     (   IsValid
     ->
@@ -189,15 +191,15 @@ step(Program, StanWe, PrId, StanWy) :-
     Storage =.. [_, _, _, Lines],
     nth0(PrId, Lines, Line),
     nth1(Line, Stmts, Stmt),
-    write('PrId: '),write(PrId),nl,
+    write('PrId:     '),write(PrId),nl,
     write('evalStmt: '),write(Stmt),nl,
     evalStmt(Stmt, PrId, Storage, Line, NewStorage, NewLine),
     NewStorage =.. [_, NewVars, NewArrs, _],
-    delete(VisitedStorages, Storage, NewVisitedStorages),
-    NewerVisitedStorages = [Storage|NewVisitedStorages], 
     nth0(PrId, Lines, _, NewLines),
     nth0(PrId, NewerLines, NewLine, NewLines),
     NewerStorage = storage(NewVars, NewArrs, NewerLines),
+    delete(VisitedStorages, NewerStorage, NewVisitedStorages),
+    NewerVisitedStorages = [NewerStorage|NewVisitedStorages], 
     StanWy = state(N, NewerStorage, NewerVisitedStorages).
 
 % evalExpr
