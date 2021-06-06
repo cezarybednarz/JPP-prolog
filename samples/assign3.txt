@@ -1,3 +1,4 @@
 variables([k]).
-arrays([]).
-program([assign(k, pid)]).
+arrays([chce]).
+program([assign(array(chce,pid),pid),
+         assign(k, 1)]).

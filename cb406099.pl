@@ -34,11 +34,13 @@ verify(N, Program) :-
 
         step(TermProg, InitState, 0, State1),
         write(State1),nl,
-        step(TermProg, State1, 0, State2),
-        write(State2),nl,
-        step(TermProg, State2, 0, State3),
-        write(State3),nl,
-
+        % step(TermProg, State1, 1, State2),
+        % write(State2),nl,
+        % step(TermProg, State2, 0, State3),
+        % write(State3),nl,
+        % step(TermProg, State3, 1, State4),
+        % write(State4),nl,
+        write('----------------------'),nl,
 
 
         checkState(TermProg, InitState, _, Result),
@@ -78,8 +80,7 @@ initState(Program, N, StanPoczatkowy) :-
     mergeLists(Arrays, InitArrays, ArraysList),
     build(1, N, LinesList),
     Storage = storage(VariablesList, ArraysList, LinesList),
-    build(1, N, InitVisitedList),
-    StanPoczatkowy = state(N, Storage, InitVisitedList). 
+    StanPoczatkowy = state(N, Storage, [Storage]). 
 
 
 getElemFromPairList([], _, Val) :-
@@ -236,6 +237,7 @@ evalBoolExpr(BExpr, PrId, Storage, BVal) :-
 % evalStmt
 evalStmt(assign(VarName, Expr), PrId,
          Storage, Line, NewStorage, NewLine) :-
+    atom(VarName),
     evalExpr(Expr, PrId, Storage, Val),
     setVariable(Storage, VarName, Val, NewStorage),
     NewLine is Line+1.
@@ -266,6 +268,6 @@ evalStmt(condGoto(BoolExpr, LineNr), PrId,
 evalStmt(sekcja, Storage, _,
          Line, NewStorage, NewLine) :-
     NewStorage = Storage,
-    NewLine = Line.
+    NewLine is Line+1.
 
     
