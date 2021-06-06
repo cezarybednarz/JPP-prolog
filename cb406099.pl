@@ -40,7 +40,7 @@ verify(N, Program) :-
         ;
             write('Program jest niepoprawny.\n'),
             write('Niepoprawny przeplot:\n'),
-            writePath(Path),
+            writePath(Path, LastStmtLine),
             format('Procesy w sekcji: ~d, ~d.\n', 
                    [PrId1, PrId2])
         ),
@@ -50,10 +50,15 @@ verify(_, Program) :-
     format('Error: brak pliku o nazwie - ~s',           % wywolywane gdy nie ma
            [Program]),nl.                               % pliku o danej nazwie
 
-writePath([]).                                          % wypisz sciezke
-writePath([[Proc,Line]|Path]) :-                        % ktora prowadzi do 
-    format('   Proces ~d: ~d\n', [Proc,Line]),          % przeplotu
-    writePath(Path).
+writePath([], _).                                       % wypisz sciezke
+writePath([[Proc,Line]|Path], N1) :-                    % ktora prowadzi do 
+    (   Line \= N1                                      % przeplotu (nie 
+    ->                                                  % wypisuj ostatniej
+        format('   Proces ~d: ~d\n', [Proc,Line])       % instrukcji: goto(N+1))
+    ;
+        true
+    ),
+    writePath(Path, N1).
 
 
 % storage:
