@@ -7,7 +7,7 @@ X <> Y :- X \= Y.                                       % operator <>
 
 verify :-
     debug,
-    current_prolog_flag(argv, [N,Program|_]),
+    current_prolog_flag(argv, [_,N,Program|_]),
     atom_number(N, N_num),
     verify(N_num, Program).
 
