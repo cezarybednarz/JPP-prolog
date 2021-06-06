@@ -23,8 +23,13 @@ verify(N, Program) :-
         Term1 =.. [_, Variables],
         Term2 =.. [_, Arrays],
         Term3 =.. [_, Stmts],
-        initState(program(Variables, Arrays, Stmts), N, InitState),
-        write(InitState),
+        TermProg = program(Variables, Arrays, Stmts),
+        initState(TermProg, N, InitState),
+        write(InitState),nl,
+        step(TermProg, InitState, 0, NextState),
+        write(NextState),nl,
+        step(TermProg, NextState, 1, NextState2),
+        write(NextState2),nl,
         seen
     ).
 verify(_, Program) :-
@@ -72,7 +77,7 @@ getElemFromPairList([[N,V]|PairList], Name, Val) :-
 
 removeElemFromPairList(PairList, Name, NewPairList) :-
     getElemFromPairList(PairList, Name, Val),
-    delete([Name,Val], PairList, NewPairList).
+    delete(PairList, [Name,Val], NewPairList).
 
 getVariable(Storage, VarName, Value) :-
     Storage =.. [_, Vars, _, _],
@@ -107,7 +112,7 @@ step(Program, StanWe, PrId, StanWy) :-
     nth1(Line, Stmts, Stmt),
     evalStmt(Stmt, PrId, Storage, Line, NewStorage, NewLine),
     NewStorage =.. [_, NewVars, NewArrs, _],
-    NewVisitedStorages = [NewStorage|VisitedStorages], 
+    NewVisitedStorages = [Storage|VisitedStorages], 
     nth0(PrId, Lines, _, NewLines),
     nth0(PrId, NewerLines , NewLine, NewLines),
     NewerStorage = storage(NewVars, NewArrs, NewerLines),
