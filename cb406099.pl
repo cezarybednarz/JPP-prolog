@@ -23,9 +23,33 @@ verify(N, Program) :-
         Term1 =.. [_, Variables],
         Term2 =.. [_, Arrays],
         Term3 =.. [_, Stmts],
-        TermProg = program(Variables, Arrays, Stmts),
+        length(Stmts, StmtsLen),
+        LastStmtLine is StmtsLen+1,
+        append(Stmts, [goto(LastStmtLine)], NewStmts),  % finished prcesses will loop at the end
+        TermProg = program(Variables, Arrays, NewStmts),
         initState(TermProg, N, InitState),
-        % todo odpalic backtracka
+
+        write('TermProg:  '),write(TermProg),nl,
+        write('InitState: '),write(InitState),nl,
+
+        step(TermProg, InitState, 0, State1),
+        write(State1),nl,
+        step(TermProg, State1, 0, State2),
+        write(State2),nl,
+        step(TermProg, State2, 0, State3),
+        write(State3),nl,
+
+
+
+        checkState(TermProg, InitState, _, Result),
+        Result =.. [_, Valid, PrId1, PrId2],
+        (   Valid
+        ->
+            write('Program jest poprawny (bezpieczny).'),nl
+        ;
+            write('Program jest niepoprawny.'),nl,
+            format('Procesy w sekcji: ~d, ~d.', [PrId1, PrId2])
+        ),
         seen
     ).
 verify(_, Program) :-
@@ -44,21 +68,18 @@ mergeLists([X|L1], [Y|L2], [[X,Y]|List]) :-
 
 initState(Program, N, StanPoczatkowy) :-
     Program =.. [_, Variables, Arrays, _],
-
     length(Variables, VariablesLen),
     build(0, VariablesLen, InitVariables),
     mergeLists(Variables, InitVariables, VariablesList),
-
     N1 is N+1,
     length(Arrays, ArraysLen),
     build(0, N1, ZeroArray),
     build(ZeroArray, ArraysLen, InitArrays),
     mergeLists(Arrays, InitArrays, ArraysList),
-
     build(1, N, LinesList),
-
     Storage = storage(VariablesList, ArraysList, LinesList),
-    StanPoczatkowy = state(N, Storage, []). 
+    build(1, N, InitVisitedList),
+    StanPoczatkowy = state(N, Storage, InitVisitedList). 
 
 
 getElemFromPairList([], _, Val) :-
@@ -102,12 +123,12 @@ setArrayElem(Storage, ArrName, Id, Value, NewStorage) :-
 
 % startBacktrack and step
 
-checkState(Program, State, PrId, NewVisitedStorages, Result) :-
+checkState(Program, State, NewVisitedStorages, Result) :-
     State =.. [_, N, Storage, VisitedStorages],
     checkCriticalSection(Program, State, result(IsValid, PrId1, PrId2)),
     (   IsValid
     ->
-        checkAllPrIds(Program, PrId, N, Storage, VisitedStorages, NewVisitedStorages, Result)
+        checkAllPrIds(Program, 0, N, Storage, VisitedStorages, NewVisitedStorages, Result)
     ;
         Result = result(false, PrId1, PrId2)
     ).
@@ -121,7 +142,7 @@ checkAllPrIds(Program, PrId, N,
     length(CurrVisitedStorages, Len2),
     (   Len1 \= Len2
     ->
-        checkState(Program, state(N, CurrStorage, CurrVisitedStorages), PrId, ChildVisistedStorages, TempResult)
+        checkState(Program, state(N, CurrStorage, CurrVisitedStorages), ChildVisistedStorages, TempResult)
     ;
         TempResult = result(true, -1, -1)
     ),
@@ -149,20 +170,17 @@ checkCriticalSection(Program, State, Result) :-
         Result = result(true, -1, -1)
     ).
 
-sectionKeywordPrIdList(Stmts, [], PrId, PrIds).
-sectionKeywordPrIdList(Stmts, [L], PrId, [PrId]) :-
-    nth1(L, Stmts, sekcja).
-sectionKeywordPrIdList(Stmts, [L], PrId, []) :-
-    not(nth1(L, Stmts, sekcja)).
-sectionKeywordPrIdList(Stmts, [L|Lines], PrId, [PrId|PrIds]) :-
-    nth1(L, Stmts, sekcja),
-    NextPrId is PrId+1,
-    sectionKeywordPrIdList(Stmts, Lines, NextPrId, PrIds).
+sectionKeywordPrIdList(_, [], _, []) :- !.
 sectionKeywordPrIdList(Stmts, [L|Lines], PrId, PrIds) :-
-    not(nth1(L, Stmts, sekcja)),
     NextPrId is PrId+1,
-    sectionKeywordPrIdList(Stmts, Lines, NextPrId, PrIds).
-
+    sectionKeywordPrIdList(Stmts, Lines, NextPrId, NewPrIds),
+    nth1(L, Stmts, Line),
+    (   Line = sekcja
+    ->  
+        PrIds = [PrId|NewPrIds]
+    ;
+        PrIds = NewPrIds
+    ).
 
 step(Program, StanWe, PrId, StanWy) :-
     Program =.. [_, _, _, Stmts],
@@ -170,6 +188,8 @@ step(Program, StanWe, PrId, StanWy) :-
     Storage =.. [_, _, _, Lines],
     nth0(PrId, Lines, Line),
     nth1(Line, Stmts, Stmt),
+    write('PrId: '),write(PrId),nl,
+    write('evalStmt: '),write(Stmt),nl,
     evalStmt(Stmt, PrId, Storage, Line, NewStorage, NewLine),
     NewStorage =.. [_, NewVars, NewArrs, _],
     delete(VisitedStorages, Storage, NewVisitedStorages),
@@ -180,16 +200,18 @@ step(Program, StanWe, PrId, StanWy) :-
     StanWy = state(N, NewerStorage, NewerVisitedStorages).
 
 % evalExpr
-evalExpr(Var, _, Storage, Val) :-
+evalExpr(Var, PrId, Storage, Val) :-
     atom(Var),
-    getVariable(Storage, Var, Val). 
+    (   Var = pid
+    ->
+        Val = PrId
+    ;   
+        getVariable(Storage, Var, Val)
+    ).
 
 evalExpr(Num, _, _, Val) :-
     integer(Num),
     Val is Num.
-
-evalExpr(pid, PrId, _, Val) :-
-    Val is PrId.
 
 evalExpr(array(ArrName, IdExpr), PrId, Storage, Val) :-
     evalExpr(IdExpr, PrId, Storage, Id),
