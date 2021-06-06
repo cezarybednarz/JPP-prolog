@@ -30,9 +30,6 @@ verify(N, Program) :-
         TermProg = program(Variables, Arrays, NewStmts),
         initState(TermProg, N, InitState),
 
-        write('TermProg:  '),write(TermProg),nl,
-        write('InitState: '),write(InitState),nl,
-
         step(TermProg, InitState, 0, State1),
         write('State1: '),write(State1),nl,
         % step(TermProg, State1, 1, State2),
@@ -51,7 +48,7 @@ verify(N, Program) :-
             write('Program jest poprawny (bezpieczny).'),nl
         ;
             write('Program jest niepoprawny.'),nl,
-            format('Procesy w sekcji: ~d, ~d.', [PrId1, PrId2])
+            format('Procesy w sekcji: ~d, ~d.\n', [PrId1, PrId2])
         ),
         seen
     ).
@@ -123,12 +120,10 @@ setArrayElem(Storage, ArrName, Id, Value, NewStorage) :-
     NewStorage = storage(Vars, NewerArrs, Lines).
 
 
-% startBacktrack and step
+% backtrack and step
 
 checkState(Program, State, NewVisitedStorages, Result) :-
     State =.. [_, N, Storage, VisitedStorages],
-    write('Storage:         '),write(Storage),nl,
-    write('VisitedStorages: '),write(Storage),nl,
     checkCriticalSection(Program, State, result(IsValid, PrId1, PrId2)),
     (   IsValid
     ->
@@ -137,10 +132,14 @@ checkState(Program, State, NewVisitedStorages, Result) :-
         Result = result(false, PrId1, PrId2)
     ).
 
-checkAllPrIds(_, N, N, _, _, _, result(true, -1, -1)).
+checkAllPrIds(_, N, N, _, VisitedStorages, NewVisitedStorages, result(true, -1, -1)) :-
+    NewVisitedStorages = VisitedStorages.
 checkAllPrIds(Program, PrId, N,
               Storage, VisitedStorages, NewVisitedStorages, Result) :-
     PrId < N,
+    write(' | PrId: '),write(PrId),nl,
+    write(' | Storage: '),write(Storage),nl,
+    write(' | VisitedStorages: '),write(VisitedStorages),nl,
     step(Program, state(N, Storage, VisitedStorages), PrId, state(N, CurrStorage, CurrVisitedStorages)),
     length(VisitedStorages, Len1),
     length(CurrVisitedStorages, Len2),
@@ -148,10 +147,11 @@ checkAllPrIds(Program, PrId, N,
     ->
         checkState(Program, state(N, CurrStorage, CurrVisitedStorages), ChildVisistedStorages, TempResult)
     ;
-        TempResult = result(true, -1, -1)
+        TempResult = result(true, -1, -1),
+        ChildVisistedStorages = CurrVisitedStorages % upewnić się
     ),
     TempResult =.. [_, Good, _, _],
-    (   Good
+    (   not(Good)
     ->
         Result = TempResult
     ;
@@ -234,7 +234,6 @@ evalBoolExpr(BExpr, PrId, Storage) :-
     BExpr =.. [Op, L, R],
     evalExpr(L, PrId, Storage, LVal),
     evalExpr(R, PrId, Storage, RVal),
-    %NewBExpr =.. [Op, LVal, RVal],
     call(Op, LVal, RVal).
 
 % evalStmt

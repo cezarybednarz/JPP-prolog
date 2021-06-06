@@ -1,3 +1,4 @@
 variables([k]).
 arrays([chce]).
-program([sekcja]).
+program([assign(k, 1),
+         sekcja]).
