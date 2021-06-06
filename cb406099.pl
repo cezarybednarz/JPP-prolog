@@ -196,7 +196,7 @@ step(Program, StanWe, PrId, StanWy) :-
     delete(VisitedStorages, Storage, NewVisitedStorages),
     NewerVisitedStorages = [Storage|NewVisitedStorages], 
     nth0(PrId, Lines, _, NewLines),
-    nth0(PrId, NewerLines , NewLine, NewLines),
+    nth0(PrId, NewerLines, NewLine, NewLines),
     NewerStorage = storage(NewVars, NewArrs, NewerLines),
     StanWy = state(N, NewerStorage, NewerVisitedStorages).
 
@@ -265,8 +265,8 @@ evalStmt(condGoto(BoolExpr, LineNr), PrId,
         NewLine = Line+1
     ).
 
-evalStmt(sekcja, Storage, _,
-         Line, NewStorage, NewLine) :-
+evalStmt(sekcja, _, 
+         Storage, Line, NewStorage, NewLine) :-
     NewStorage = Storage,
     NewLine is Line+1.
 
